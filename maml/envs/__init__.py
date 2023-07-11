@@ -1,4 +1,4 @@
-from gym.envs.registration import register
+from gymnasium.envs.registration import register
 
 # Bandit
 # ----------------------------------------
@@ -6,7 +6,7 @@ from gym.envs.registration import register
 for k in [5, 10, 50]:
     register(
         'Bandit-K{0}-v0'.format(k),
-        entry_point='maml_rl.envs.bandit:BernoulliBanditEnv',
+        entry_point='maml.envs.bandit:BernoulliBanditEnv',
         kwargs={'k': k}
     )
 
@@ -15,7 +15,7 @@ for k in [5, 10, 50]:
 
 register(
     'TabularMDP-v0',
-    entry_point='maml_rl.envs.mdp:TabularMDPEnv',
+    entry_point='maml.envs.mdp:TabularMDPEnv',
     kwargs={'num_states': 10, 'num_actions': 5},
     max_episode_steps=10
 )
@@ -25,32 +25,32 @@ register(
 
 register(
     'AntVel-v2',
-    entry_point='maml_rl.envs.utils.wrappers:mujoco_wrapper',
-    kwargs={'entry_point': 'maml_rl.envs.mujoco.ant:AntVelEnv'}
+    entry_point='maml.envs.utils.wrappers:mujoco_wrapper',
+    kwargs={'entry_point': 'maml.envs.mujoco.ant:AntVelEnv'}
 )
 
 register(
     'AntDir-v2',
-    entry_point='maml_rl.envs.utils.wrappers:mujoco_wrapper',
-    kwargs={'entry_point': 'maml_rl.envs.mujoco.ant:AntDirEnv'}
+    entry_point='maml.envs.utils.wrappers:mujoco_wrapper',
+    kwargs={'entry_point': 'maml.envs.mujoco.ant:AntDirEnv'}
 )
 
 register(
     'AntPos-v1',
-    entry_point='maml_rl.envs.utils.wrappers:mujoco_wrapper',
-    kwargs={'entry_point': 'maml_rl.envs.mujoco.ant:AntPosEnv'}
+    entry_point='maml.envs.utils.wrappers:mujoco_wrapper',
+    kwargs={'entry_point': 'maml.envs.mujoco.ant:AntPosEnv'}
 )
 
 register(
     'HalfCheetahVel-v2',
-    entry_point='maml_rl.envs.utils.wrappers:mujoco_wrapper',
-    kwargs={'entry_point': 'maml_rl.envs.mujoco.half_cheetah:HalfCheetahVelEnv'}
+    entry_point='maml.envs.utils.wrappers:mujoco_wrapper',
+    kwargs={'entry_point': 'maml.envs.mujoco.half_cheetah:HalfCheetahVelEnv'}
 )
 
 register(
     'HalfCheetahDir-v2',
-    entry_point='maml_rl.envs.utils.wrappers:mujoco_wrapper',
-    kwargs={'entry_point': 'maml_rl.envs.mujoco.half_cheetah:HalfCheetahDirEnv'}
+    entry_point='maml.envs.utils.wrappers:mujoco_wrapper',
+    kwargs={'entry_point': 'maml.envs.mujoco.half_cheetah:HalfCheetahDirEnv'}
 )
 
 # 2D Navigation
@@ -58,6 +58,6 @@ register(
 
 register(
     '2DNavigation-v0',
-    entry_point='maml_rl.envs.navigation:Navigation2DEnv',
+    entry_point='maml.envs.navigation:Navigation2DEnv',
     max_episode_steps=100
 )

@@ -4,7 +4,10 @@ import os
 import yaml
 import json
 import tqdm
-import maml
+
+import maml.envs
+from maml.utils.helpers import get_policy_for_env
+from maml.samplers import MultiTaskSampler
 
 def main(args):
     with open(args.config, 'r') as f:
@@ -18,17 +21,18 @@ def main(args):
         config.update(vars(args)) # vars返回对象args里面的对象和值，update是更新值，如果有了就更新，没有就添加
         json.dump(config, f, indent=2) # indent=2表示缩进2个空格，dump表示将config写入f中
     # environment
-    env = gym.make(config['env-name'], **config.get('env-kwargs',{})).close() # **表示将字典解包，获取config字典中'env-kwargs'键的值，如果该键不存在，则返回一个空字典{}
+    env = gym.make(config['env-name'], **config.get('env-kwargs',{})) # **表示将字典解包，获取config字典中'env-kwargs'键的值，如果该键不存在，则返回一个空字典{}
+    env.close()
     # policy
-    policy = maml.utils.get_policy_for_env(env, hidden_sizes=config['hidden-sizes'], nonlinearity=config['nonlinearity'])
+    policy = get_policy_for_env(env, hidden_sizes=config['hidden-sizes'], nonlinearity=config['nonlinearity'])
     policy.share_memory() # 将policy放到共享内存中，这样多个进程就可以共享这个policy
     # sampler
-    sampler = maml.samplers.MultiTaskSampler(
+    sampler = MultiTaskSampler(
         config['env-name'], env_kwargs=config.get('env-kwargs',{}), batch_size=config['fast-batch-size'], # 这里的fast-batch-size是指每个任务采样的轨迹数
         num_workers=args.num_workers, policy=policy, env=env
     )
     # learner
-    metalearner = maml.metalearners.MAMLTRPO(policy=policy, fast_lr=config['fast-lr'], first_order=config['first-order'])
+    metalearner = MAMLTRPO(policy=policy, fast_lr=config['fast-lr'], first_order=config['first-order'])
     # train
     num_iterations = 0
     for batch in tqdm.trange(config['num-batches']):
@@ -42,7 +46,7 @@ if __name__ == '__main__':
     import argparse
     import multiprocessing as mp
     parser = argparse.ArgumentParser(description='Train MAML-RL')
-    parser.add_argument('--config', type=str, default='configs/halfcheetah.yaml')
+    parser.add_argument('--config', type=str, default='configs/halfcheetah-vel.yaml')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--num-workers', type=int, default=mp.cpu_count()-1)
     parser.add_argument('--output-folder', type=str, default='output')

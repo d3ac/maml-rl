@@ -1,6 +1,8 @@
 {
-  "env-name": "HalfCheetahDir-v2",
+  "env-name": "HalfCheetahVel-v2",
   "env-kwargs": {
+    "low": 0.0,
+    "high": 2.0,
     "normalization_scale": 10.0,
     "max_episode_steps": 100
   },
@@ -22,7 +24,7 @@
   "cg-damping": 1e-05,
   "ls-max-steps": 15,
   "ls-backtrack-ratio": 0.8,
-  "config": "configs/halfcheetah.yaml",
+  "config": "configs/halfcheetah-vel.yaml",
   "seed": 0,
   "num_workers": 15,
   "output_folder": "output",

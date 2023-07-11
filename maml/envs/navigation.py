@@ -1,8 +1,8 @@
 import numpy as np
-import gym
+import gymnasium as gym
 
-from gym import spaces
-from gym.utils import seeding
+from gymnasium import spaces
+from gymnasium.utils import seeding
 
 
 class Navigation2DEnv(gym.Env):

@@ -1,7 +1,7 @@
 import numpy as np
 
-from gym.vector import SyncVectorEnv as SyncVectorEnv_
-from gym.vector.utils import concatenate, create_empty_array
+from gymnasium.vector import SyncVectorEnv as SyncVectorEnv_
+from gymnasium.vector.utils import concatenate, create_empty_array
 
 
 class SyncVectorEnv(SyncVectorEnv_):

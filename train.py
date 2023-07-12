@@ -4,12 +4,14 @@ import os
 import yaml
 import json
 import tqdm
+import torch.multiprocessing as mp
 
 import maml.envs
 from maml.utils.helpers import get_policy_for_env
 from maml.samplers import MultiTaskSampler
 
 def main(args):
+    mp.set_start_method('spawn') # 设置多进程的启动方式为spawn，不然会出现cuda错误
     with open(args.config, 'r') as f:
         config = yaml.load(f, Loader=yaml.FullLoader) # 可以通过config['xxx']来获取配置信息
     # 保存文件和配置信息
@@ -37,10 +39,12 @@ def main(args):
     num_iterations = 0
     for batch in tqdm.trange(config['num-batches']):
         tasks = sampler.sample_tasks(num_tasks=config['meta-batch-size']) # 采样任务
-    """
-    #TODO 先暂停下，先去写其他的代码，等写完了再回来写这里
-    """
-
+        futures = sampler.sample_asnc(tasks, num_steps=config['num-steps'])
+        metalearner.step(*futures, max_kl=config['max-kl'], cg_iters=config['cg-iters'], cg_damping=config['cg-damping'], ls_max_steps=config['ls-max-steps'], ls_backtrack_ratio=config['ls-backtrack-ratio']) # *futures是train_episodes_futures, valid_episodes_futures
+        train_episodes, valid_episodes = sampler.sample_wait(futures)
+        with open(policy_filename, 'wb') as f:
+            torch.save(policy.state_dict(), f)
+        
 
 if __name__ == '__main__':
     import argparse

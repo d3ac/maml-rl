@@ -1,6 +1,10 @@
 import numpy as np
 from maml.utils.torch_utils import weighted_mean, to_numpy
 
+def get_returns(episodes):
+    # returns 是一系列动作之后获得的奖励总和
+    return to_numpy([episode.rewards.sum(dim=0) for episode in episodes])
+
 def xreinforce_loss(policy, episodes, params=None):
     #!这个还有一点问题，没有弄懂他的维度
     # policy是一个函数, 输入是observation, 输出是动作的分布, 形状是 [action, ]

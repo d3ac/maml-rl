@@ -26,7 +26,9 @@ class NormalMLPPolicy(Policy):
     def forward(self, input, params=None):
         if params is None: # 和Policy的一样，如果没有传入参数，就用自己的参数
             params = OrderedDict(self.named_parameters())
-        output = input # 初始化输入
+        if isinstance(input, np.ndarray):
+            input = torch.tensor(input, dtype=torch.float32)
+        output = input.to(torch.float32) # 初始化输入
         for i in range(1, self.num_layers):
             output = F.linear(output, weight=params['layer{0}.weight'.format(i)], bias=params['layer{0}.bias'.format(i)])
             output = self.nonlinearity(output)

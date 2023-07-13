@@ -24,6 +24,7 @@ class LinearFeatureBaseline(nn.Module):
     
     def fit(self, episodes):
         # 用feature去拟合returns, 也就是得到了observation去找returns
+        # 运行fit会修改self.weight
         featmat = self._feature(episodes).view(-1, self._feature_size) # flatten
         returns = episodes.returns.view(-1, 1)
         flat_mask = episodes.mask.flatten() # (a*b,)

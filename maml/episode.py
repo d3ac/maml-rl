@@ -119,7 +119,7 @@ class BatchEpisodes(object):
         """
         advantage是一个用于评估某个动作相对于平均水平的指标
         """
-        values = baseline(self).detach()  #TODO 记得看看values是一个什么样子的形状
+        values = baseline(self).detach()  # values : (max_length, batch_size)
         values = F.pad(values * self.mask, (0, 0, 0, 1)) # 相当于在最后一行后面加了一排0
         
         deltas = self.rewards + self.gamma * values[1:] - values[:-1]

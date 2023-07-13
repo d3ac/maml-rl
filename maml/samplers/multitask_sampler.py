@@ -12,6 +12,10 @@ from maml.envs.utils.sync_vector_env import SyncVectorEnv
 from maml.episode import BatchEpisodes
 from maml.utils.reinforcement_learning import reinforce_loss
 
+def _create_consumer_thread(queue, futures, loop=None):
+    if loop is None:
+        loop = asyncio.get_event_loop()
+
 class SamplerWorker(mp.Process):
     """
     """
@@ -28,11 +32,11 @@ class SamplerWorker(mp.Process):
         self.policy_lock = policy_lock
 
     def sample_trajectories(self, params=None):
-        # 一个yield的生成器，每次返回一个轨迹, 也就是
+        # 一个yield的生成器，每次返回一个轨迹
         observations, info = self.envs.reset()
         self.envs.dones[:] = False
         with torch.no_grad():
-            while not self.envs.dones.all():
+            while not self.envs.dones.all(): # 不是while True
                 observations_tensor = torch.from_numpy(observations.astype('float32'))
                 pi = self.policy(observations_tensor, params=params)
                 actions_tensor = pi.sample()
@@ -44,12 +48,9 @@ class SamplerWorker(mp.Process):
     
     def create_episode(self, params=None, gamma=0.95, gae_lambda=1.0, device='cpu'):
         episodes = BatchEpisodes(self.batch_size, gamma, device)
-        episodes.log('_create_episode_at', datetime.now(timezone.utc))
-        episodes.log('process_name', self.name)
-        t0 = time.time() # 记录开始时间
         for item in self.sample_trajectories(params):
             episodes.append(*item)
-        episodes.log('duration', time.time() - t0)
+        self.baseline.fit(episodes)
         episodes.compute_advantages(self.baseline, gae_lambda, True)
         return episodes
 
@@ -57,25 +58,30 @@ class SamplerWorker(mp.Process):
         params = None
         for step in range(num_steps): # 采样num_steps个轨迹
             train_episode = self.create_episode(params, gamma, gae_lambda, device) # 创建一个episode
-            train_episode.log('_put_train_episode_at', datetime.now(timezone.utc))
             self.train_queue.put((index, step, deepcopy(train_episode))) # deepcopy是为了防止多个进程之间的episode共享内存
             with self.policy_lock:
                 loss = reinforce_loss(self.policy, train_episode, params)
                 params = self.policy.update_params(loss, params, fast_lr, fast_lr, True)
         valid_episode = self.create_episode(params, gamma, gae_lambda, device)
-        valid_episode.log('_put_valid_episode_at', datetime.now(timezone.utc))
         self.valid_queue.put((index, None, deepcopy(valid_episode)))
-
-
+    
+    def run(self):
+        while True:
+            data = self.task_queue.get()
+            if data is None:
+                self.envs.close()
+                self.task_queue.task_done()
+                break
+            index, task, kwargs = data
+            self.envs.reset_task(task)
+            self.sample(index, **kwargs) # 采样并且训练
+            self.task_queue.task_done() # 通知主进程任务完成
 
 
 
 
 
 class MultiTaskSampler(Sampler):
-    """
-
-    """
     def __init__(self, env_name, env_kwargs, batch_size, policy, baseline, env=None, num_workers=1):
         super(MultiTaskSampler, self).__init__(env_name, env_kwargs, batch_size, policy, env)
         self.num_workers = num_workers
@@ -84,3 +90,30 @@ class MultiTaskSampler(Sampler):
         self.train_episodes_queue = mp.Queue()
         self.valid_episodes_queue = mp.Queue()
         policy_lock = mp.Lock()
+        self.workers = [
+            SamplerWorker(
+                index, env_name, env_kwargs, batch_size, self.observation_space, self.action_space, policy,
+                deepcopy(baseline), self.task_queue, self.train_episodes_queue, self.valid_episodes_queue, policy_lock
+            ) for index in range(num_workers)
+        ]
+        for worker in self.workers:
+            worker.daemon = True # 设置为守护进程
+            worker.start()
+        self._waiting_sample = False
+        self._event_loop = asyncio.get_event_loop() # 创建一个事件循环， asyncio是用于异步编程的库
+        self._train_consumer_thread = None
+        self._valid_consumer_thread = None
+
+    def sample_tasks(self, num_tasks):
+        return self.env.unwrapped.sample_tasks(num_tasks)
+    
+    def _start_consumer_threads(self, tasks, num_steps=1):
+
+    
+    def sample_asnc(self, tasks, **kwargs):
+        if self._waiting_sample:
+            raise RuntimeError('Already sampling!')
+        for index, task in enumerate(tasks):
+            self.task_queue.put((index, task, kwargs))
+        num_steps = kwargs.get('num_steps', 1)
+        futures = self._start_consumer_threads(tasks, num_steps)

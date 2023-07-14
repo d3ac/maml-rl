@@ -38,7 +38,7 @@ def main(args):
     # train
     num_iterations = 0
     for batch in tqdm.trange(config['num-batches']):
-        tasks = sampler.sample_tasks(num_tasks=config['meta-batch-size']) # 采样任务
+        tasks = sampler.sample_tasks(num_tasks=config['meta-batch-size']) # 调用env.unwrapped.sample_tasks(num_tasks)生成任务字典
         futures = sampler.sample_asnc(tasks, num_steps=config['num-steps'])
         metalearner.step(*futures, max_kl=config['max-kl'], cg_iters=config['cg-iters'], cg_damping=config['cg-damping'], ls_max_steps=config['ls-max-steps'], ls_backtrack_ratio=config['ls-backtrack-ratio']) # *futures是train_episodes_futures, valid_episodes_futures
         train_episodes, valid_episodes = sampler.sample_wait(futures)

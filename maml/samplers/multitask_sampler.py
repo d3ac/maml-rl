@@ -12,13 +12,8 @@ from maml.envs.utils.sync_vector_env import SyncVectorEnv
 from maml.episode import BatchEpisodes
 from maml.utils.reinforcement_learning import reinforce_loss
 
-def _create_consumer_thread(queue, futures, loop=None):
-    if loop is None:
-        loop = asyncio.get_event_loop()
-
 class SamplerWorker(mp.Process):
-    """
-    """
+    # 采样器进程
     def __init__(self, index, env_name, env_kwargs, batch_size, observation_space, action_space, policy, baseline, task_queue, train_queue, valid_queue, policy_lock):
         super(SamplerWorker, self).__init__()
         env_functions = [make_env(env_name, env_kwargs) for _ in range(batch_size)]
@@ -79,6 +74,15 @@ class SamplerWorker(mp.Process):
 
 
 
+def _create_consumer(queue, futures, loop):
+    while True:
+        data = queue.get() # 等待采样器进程的数据, 如果没有数据, 就会阻塞在这里
+        if data is None: # 传入None就代表结束
+            break
+        index, step, episode = data
+        future = futures if (step is None) else futures[step]
+        if not future[index].cancelled():
+            loop.call_soon_threadsafe(future[index].set_result, episode)
 
 
 class MultiTaskSampler(Sampler):
@@ -100,20 +104,78 @@ class MultiTaskSampler(Sampler):
             worker.daemon = True # 设置为守护进程
             worker.start()
         self._waiting_sample = False
-        self._event_loop = asyncio.get_event_loop() # 创建一个事件循环， asyncio是用于异步编程的库
+        self._event_loop = asyncio.get_event_loop() # 创建一个事件循环
         self._train_consumer_thread = None
         self._valid_consumer_thread = None
 
     def sample_tasks(self, num_tasks):
         return self.env.unwrapped.sample_tasks(num_tasks)
-    
-    def _start_consumer_threads(self, tasks, num_steps=1):
 
-    
-    def sample_asnc(self, tasks, **kwargs):
-        if self._waiting_sample:
+    def _start_consumer_threads(self, tasks, num_steps=1):
+        #! 这个地方future对象貌似都没有定义?
+        # train
+        train_episodes_futures = [[self._event_loop.create_future() for _ in tasks] for _ in range(num_steps)]
+        self._train_consumer_thread = threading.Thread(target=_create_consumer, args=(self.train_episodes_queue, train_episodes_futures), kwargs={'loop':self._event_loop}) #! train_episodes_queue怎么;来到
+        self._train_consumer_thread.daemon = True # 设置为守护进程, 因为当主进程结束了, 就不需要继续了
+        self._train_consumer_thread.start()
+        # valid
+        valid_episodes_futures = [self._event_loop.create_future() for _ in tasks]
+        self._valid_consumer_thread = threading.Thread(target=_create_consumer, args=(self.valid_episodes_queue, valid_episodes_futures), kwargs={'loop':self._event_loop})
+        self._valid_consumer_thread.daemon = True
+        self._valid_consumer_thread.start()
+        return (train_episodes_futures, valid_episodes_futures)
+
+    def sample_async(self, tasks, **kwargs): # 传入task, 然后传入task_queue进行sample, 最后调用consumer进行set future
+        if self._waiting_sample: #! 看看
             raise RuntimeError('Already sampling!')
         for index, task in enumerate(tasks):
-            self.task_queue.put((index, task, kwargs))
+            self.task_queue.put((index, task, kwargs)) # SamplerWorker 已经开始采样了
         num_steps = kwargs.get('num_steps', 1)
         futures = self._start_consumer_threads(tasks, num_steps)
+        self._waiting_sample = True #! 进入到sample_wait的时候才会变成False
+        return futures
+    
+    @property
+    def valid_consumer_thread(self):
+        return self._valid_consumer_thread
+    
+    @property
+    def train_consumer_thread(self):
+        return self._train_consumer_thread
+    
+    def sample_wait(self, episodes_futures): # 用来等待所有的异步采样操作完成
+        if not self._waiting_sample:
+            raise RuntimeError('Not sampling!')
+        
+        async def _wait(train_futures, valid_futures):
+            train_episodes = await asyncio.gather(*[asyncio.gather(*futures) for futures in train_futures])
+            valid_episodes = await asyncio.gather(*valid_futures)
+            return train_episodes, valid_episodes
+        
+        samples = self._event_loop.run_until_complete(_wait(*episodes_futures)) # Run the event loop until a Future is done.
+        self._join_consumer_threads()
+        self._waiting_sample = False
+        return samples
+    
+    def sample(self, tasks, **kwargs):
+        futures =  self.sample_async(tasks, **kwargs)
+        return self.sample_wait(futures)
+    
+    def _join_consumer_threads(self): # 等待所有的消费者线程结束, 分别关闭train和valid的消费者线程
+        if self._train_consumer_thread is not None:
+            self.train_episodes_queue.put(None) # 通知采样器进程结束
+            self.train_consumer_thread.join()
+        if self._valid_consumer_thread is not None:
+            self.valid_episodes_queue.put(None)
+            self.valid_consumer_thread.join()
+        self._train_consumer_thread = None
+        self._valid_consumer_thread = None
+
+    def close(self):
+        if self.closed:
+            return
+        for _ in range(self.num_workers):
+            self.task_queue.put(None) # Put None之后join就不会阻塞了
+        self.task_queue.join() # 等待所有的任务完成
+        self._join_consumer_threads() # 等待所有的消费者线程结束
+        self.closed = True

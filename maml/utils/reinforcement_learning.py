@@ -14,5 +14,6 @@ def reinforce_loss(policy, episodes, params=None):
     # log_probs就是计算在给定分布下的概率密度,log_probs的形状是 [trajectory_length * batch_size, ]
     # 因为是那action_dim(6个)同时取到的概率, 所以加起来最后一维action_dim就没有了
     log_probs = log_probs.view(len(episodes), episodes.batch_size)
-    losses = - weighted_mean(log_probs * episodes.advantages, lengths=episodes.lengths) 
+    losses = - weighted_mean(log_probs * episodes.advantages, lengths=episodes.lengths) #我们希望增加优势高的动作的概率，减少优势低的动作的概率 
+    # 因为我们想要最大化log_probs * advantages, 然而pytorch只有最小化的loss, 所以加个负号
     return losses.mean()

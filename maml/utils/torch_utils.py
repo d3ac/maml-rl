@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+from torch.distributions import Independent, Normal, Categorical
+from torch.nn.utils.convert_parameters import _check_param_device
 
 def weighted_mean(tensor, lengths=None):
     """
@@ -38,3 +40,23 @@ def to_numpy(tensor):
         return np.stack([to_numpy(t) for t in tensor], axis=0) # 如果使用np.array, 可能会有广播操作，或者数据类型的转换
     else:
         raise NotImplementedError('to_numpy not implemented for type')
+
+def detach_distribution(pi):
+    # detach可以把一部分计算图固定住,只更新另一部分
+    if isinstance(pi, Independent): # Independent是多个分布组成的, 要分别detach
+        return Independent(detach_distribution(pi.base_dist), pi.reinterpreted_batch_ndims)
+    elif isinstance(pi, Normal):
+        return Normal(loc=pi.loc.detach(), scale=pi.scale.detach())
+    elif isinstance(pi, Categorical):
+        return Categorical(probs=pi.probs.detach())
+    else:
+        raise NotImplementedError('detach_distribution not implemented for type')
+
+def vector_to_parameters(vector, parameters):
+    param_device = None
+    pointer = 0
+    for param in parameters:
+        param_device = _check_param_device(param, param_device)
+        num_param = param.numel() # 返回参数的元素个数
+        param.data.copy_(vector[pointer:pointer + num_param].view_as(param).data)
+        pointer += num_param

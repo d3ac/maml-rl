@@ -54,4 +54,35 @@ class MAMLTRPO(GradientBasedMetaLearner):
     def step(self, train_futures, valid_futures, max_kl=1e-3, cg_iters=10, cg_damping=1e-2, ls_max_steps=10, ls_backtrack_ratio=0.5):
         num_tasks = len(train_futures[0])
         logs = {}
+        old_losses, old_kls, old_pis = self._async_gather([self.surrogate_loss(train, valid, old_pi=None) for train, valid in zip(zip(*train_futures), valid_futures)])
+        # train_futures是一个列表, shape为 (m, n)表示, 每个任务有m个trajectory, 一共有n个不同的任务
+        # [ [traj1_task1, traj1_task2, ..., traj1_taskn] ...
+        # [trajm_taskm, trajm_task2, ..., trajm_taskn] ]
+        # 这里使用 zip(* train_futures)就可以把每个任务的trajectory放在一起, 形成一个列表
+        logs['loss_before'] = to_numpy(old_losses)
+        logs['kl_before'] = to_numpy(old_kls)
+        old_losses = sum(old_losses) / num_tasks 
+        old_kl = sum(old_kls) / num_tasks
+        grads = torch.autograd.grad(old_losses, self.policy.parameters(), retain_graph=True)
+        grads = parameters_to_vector(grads)
+        hessian_vector_product = self.hessian_vector_product(old_kl, damping=cg_damping) # 定义的是一个函数
+        stepdir = conjugate_gradient(hessian_vector_product, grads, cg_iters=cg_iters)
         
+        lagrange_multiplier = torch.sqrt(0.5 * torch.dot(stepdir, hessian_vector_product(stepdir, False)) /max_kl)
+        step = stepdir / lagrange_multiplier
+        old_params = parameters_to_vector(self.policy.parameters())
+        
+        step_size = 1.0
+        for i in range(ls_max_steps):
+            vector_to_parameters(old_params - step_size * step, self.policy.parameters()) # 就是更新一下参数
+            losses, kls, _ = self._async_gather([self.surrogate_loss(train, valid, old_pi=old_pi) for (train, valid, old_pi) in zip(zip(*train_futures), valid_futures, old_pis)])
+            improve = sum(losses) / num_tasks - old_losses
+            kl = sum(kls) / num_tasks
+            if improve.item() < 0.0 and kl.item() < max_kl:
+                logs['loss_after'] = to_numpy(losses)
+                logs['kl_after'] = to_numpy(kls)
+                break
+            step_size *= ls_backtrack_ratio
+        else:
+            vector_to_parameters(old_params, self.policy.parameters()) # 如果for循环正常结束, 则不更新参数
+        return logs

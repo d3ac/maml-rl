@@ -74,12 +74,12 @@ class MAMLTRPO(GradientBasedMetaLearner):
         old_params = parameters_to_vector(self.policy.parameters())
         
         step_size = 1.0
-        for i in range(ls_max_steps):
+        for _ in range(ls_max_steps):
             vector_to_parameters(old_params - step_size * step, self.policy.parameters()) # 就是更新一下参数
             losses, kls, _ = self._async_gather([self.surrogate_loss(train, valid, old_pi=old_pi) for (train, valid, old_pi) in zip(zip(*train_futures), valid_futures, old_pis)])
-            improve = sum(losses) / num_tasks - old_losses
+            improve = (sum(losses) / num_tasks) - old_loss
             kl = sum(kls) / num_tasks
-            if improve.item() < 0.0 and kl.item() < max_kl:
+            if (improve.item() < 0.0) and (kl.item() < max_kl):
                 logs['loss_after'] = to_numpy(losses)
                 logs['kl_after'] = to_numpy(kls)
                 break

@@ -56,12 +56,14 @@ def main(args):
         TRAIN.append(np.mean(get_returns(train_episodes[0])))
         VALID.append(np.mean(get_returns(valid_episodes)))
         Trange.set_description(f'train: {TRAIN[-1]:.4f}, valid: {VALID[-1]:.4f}')
-    with open(policy_filename, 'wb') as f:
-        torch.save(policy.state_dict(), f)
-    a = pd.DataFrame(TRAIN)
-    b = pd.DataFrame(VALID)
-    a.to_excel('train.xlsx', index=False)
-    b.to_excel('valid.xlsx', index=False)
+        if batch % 10 != 0 and batch != config['num-batches'] - 1:
+            continue
+        with open(policy_filename, 'wb') as f:
+            torch.save(policy.state_dict(), f)
+        a = pd.DataFrame(TRAIN)
+        b = pd.DataFrame(VALID)
+        a.to_excel('train.xlsx', index=False)
+        b.to_excel('valid.xlsx', index=False)
 
 if __name__ == '__main__':
     import argparse

@@ -28,5 +28,6 @@
   "seed": 0,
   "num_workers": 15,
   "output_folder": "output",
-  "device": "cuda"
+  "use_cuda": false,
+  "device": "cpu"
 }

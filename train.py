@@ -58,6 +58,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--num-workers', type=int, default=mp.cpu_count()-1)
     parser.add_argument('--output-folder', type=str, default='output')
+    parser.add_argument('--use-cuda', action='store_true', default=False)
     args = parser.parse_args()
-    args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    args.device = ('cuda' if (torch.cuda.is_available() and args.use_cuda) else 'cpu')
     main(args)  

@@ -52,6 +52,7 @@ def main(args):
         futures = sampler.sample_async(tasks, num_steps=config['num-steps'], device=args.device) 
         # ([[train_episodes1], [train_episodes2]], [valid_episodes]) 这个train的主要取决于num_steps, 有几个num_steps就有几个train_episodes
         metalearner.step(*futures, max_kl=config['max-kl'], cg_iters=config['cg-iters'], cg_damping=config['cg-damping'], ls_max_steps=config['ls-max-steps'], ls_backtrack_ratio=config['ls-backtrack-ratio']) # *futures是train_episodes_futures, valid_episodes_futures
+        #!为什么这个地方就可以用step, 二阶梯度是怎么传递的
         train_episodes, valid_episodes = sampler.sample_wait(futures)
         TRAIN.append(np.mean(get_returns(train_episodes[0])))
         VALID.append(np.mean(get_returns(valid_episodes)))
@@ -67,7 +68,6 @@ def main(args):
 
 if __name__ == '__main__':
     import argparse
-    import multiprocessing as mp
     parser = argparse.ArgumentParser(description='Train MAML-RL')
     parser.add_argument('--config', type=str, default='configs/halfcheetah-vel.yaml')
     parser.add_argument('--seed', type=int, default=0)

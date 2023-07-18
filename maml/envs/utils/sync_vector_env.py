@@ -14,9 +14,9 @@ class SyncVectorEnv(SyncVectorEnv_):
     def dones(self):
         return self._dones
     
-    def reset_task(self, tasks):
-        self._dones[:] = False
-        for env, task in zip(self.envs, tasks):
+    def reset_task(self, task):
+        # self._dones[:] = False
+        for env in self.envs:
             env.unwrapped.reset_task(task)
     
     def step_wait(self): # SyncVectorEnv的step会调用step_wait，让每一个环境都step一步

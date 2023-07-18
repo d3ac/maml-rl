@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-from maml.utils.torch_utils import weight_normalize
+from maml.utils.torch_utils import weighted_normalize
 
 class BatchEpisodes(object):
     def __init__(self, batch_size, gamma=0.95, device='cpu'):
@@ -78,7 +78,7 @@ class BatchEpisodes(object):
     @property
     def returns(self):
         if self._returns == None:
-            self.returns = torch.zeros_like(self.rewards) # zeros_like是创建一个和self.rewards一样shape的tensor，但是值都是0
+            self._returns = torch.zeros_like(self.rewards) # zeros_like是创建一个和self.rewards一样shape的tensor，但是值都是0
             return_ = torch.zeros((self.batch_size,), dtype=torch.float32) # (batch_size,)
             for i in range(len(self)-1, -1, -1): # 从len(self)-1到0，步长为1 (倒着来)
                 return_ = self.gamma * return_ + self.rewards[i] * self.mask[i] # mask是一个0-1的矩阵
@@ -96,7 +96,7 @@ class BatchEpisodes(object):
 
     @property
     def advantages(self):
-        if self.advantages == None:
+        if self._advantages == None:
             raise ValueError('advantages is not computed yet')
         return self._advantages
     
@@ -132,7 +132,7 @@ class BatchEpisodes(object):
             self._advantages[i] = gae
         
         if normalize:
-            self._advantages =  weight_normalize(self._advantages, lenghts=self.lengths)
+            self._advantages =  weighted_normalize(self._advantages, lengths=self.lengths)
         del self._returns
         del self._mask
         return self._advantages

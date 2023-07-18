@@ -23,10 +23,10 @@ def weighted_mean(tensor, lengths=None):
     return out
 
 def weighted_normalize(tensor, lengths=None, epsilon=1e-8):
-    mean = weighted_mean(tensor, lenghth)
+    mean = weighted_mean(tensor, lengths)
     out = tensor - mean.mean() # 现在out的均值为0
-    for i, lenghth in enumerate(lengths):
-        out[lenghth:, i].fill_(0.)
+    for i, length in enumerate(lengths):
+        out[length:, i].fill_(0.)
     std = torch.sqrt(weighted_mean(out ** 2, lengths).mean()) # $$ \sigma = \sqrt{\frac{1}{N} \sum_{i=1}^N (x_i - \mu)^2} $$
     out.div_(std + epsilon)
     return out

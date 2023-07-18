@@ -8,7 +8,8 @@ class LinearFeatureBaseline(nn.Module):
         super(LinearFeatureBaseline, self).__init__()
         self.input_size = input_size
         self._reg_coeff = reg_coeff
-        self.weight = nn.Parameter(torch.Tensor(self.feature_size,), requires_grad=True)
+        self.weight = nn.Parameter(torch.Tensor(self.feature_size,), requires_grad=False)
+        self.weight.data.zero_()
         self._eye = torch.eye(self.feature_size, dtype=torch.float32, device=self.weight.device)
     
     @property
@@ -25,12 +26,12 @@ class LinearFeatureBaseline(nn.Module):
     def fit(self, episodes):
         # 用feature去拟合returns, 也就是得到了observation去找returns
         # 运行fit会修改self.weight
-        featmat = self._feature(episodes).view(-1, self._feature_size) # flatten
+        featmat = self._feature(episodes).view(-1, self.feature_size) # flatten
         returns = episodes.returns.view(-1, 1)
         flat_mask = episodes.mask.flatten() # (a*b,)
         # 去掉是0的部分
         flat_mask_idx = torch.nonzero(flat_mask)
-        featmat = featmat[flat_mask_idx].view(-1, self._feature_size)
+        featmat = featmat[flat_mask_idx].view(-1, self.feature_size)
         returns = returns[flat_mask_idx].view(-1, 1)
         # 计算
         reg_coeff = self._reg_coeff

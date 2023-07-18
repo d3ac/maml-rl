@@ -7,8 +7,11 @@ import tqdm
 import torch.multiprocessing as mp
 
 import maml.envs
-from maml.utils.helpers import get_policy_for_env
+from maml.utils.helpers import get_policy_for_env, get_input_size
 from maml.samplers import MultiTaskSampler
+from maml.metalearners import MAMLTRPO
+from maml.baseline import LinearFeatureBaseline
+
 
 def main(args):
     mp.set_start_method('spawn') # 设置多进程的启动方式为spawn，不然会出现cuda错误
@@ -29,17 +32,18 @@ def main(args):
     policy = get_policy_for_env(env, hidden_sizes=config['hidden-sizes'], nonlinearity=config['nonlinearity'])
     policy.share_memory() # 将policy放到共享内存中，这样多个进程就可以共享这个policy
     # sampler
+    baseline = LinearFeatureBaseline(get_input_size(env))
     sampler = MultiTaskSampler(
         config['env-name'], env_kwargs=config.get('env-kwargs',{}), batch_size=config['fast-batch-size'], # 这里的fast-batch-size是指每个任务采样的轨迹数
-        num_workers=args.num_workers, policy=policy, env=env
+        num_workers=args.num_workers, policy=policy, env=env, baseline=baseline
     )
     # learner
-    metalearner = MAMLTRPO(policy=policy, fast_lr=config['fast-lr'], first_order=config['first-order'])
+    metalearner = MAMLTRPO(policy=policy, fast_lr=config['fast-lr'], first_order=config['first-order'], device=args.device)
     # train
     num_iterations = 0
     for batch in tqdm.trange(config['num-batches']):
         tasks = sampler.sample_tasks(num_tasks=config['meta-batch-size']) # 调用env.unwrapped.sample_tasks(num_tasks)生成任务字典
-        futures = sampler.sample_asnc(tasks, num_steps=config['num-steps'])
+        futures = sampler.sample_async(tasks, num_steps=config['num-steps'], device=args.device)
         metalearner.step(*futures, max_kl=config['max-kl'], cg_iters=config['cg-iters'], cg_damping=config['cg-damping'], ls_max_steps=config['ls-max-steps'], ls_backtrack_ratio=config['ls-backtrack-ratio']) # *futures是train_episodes_futures, valid_episodes_futures
         train_episodes, valid_episodes = sampler.sample_wait(futures)
         with open(policy_filename, 'wb') as f:

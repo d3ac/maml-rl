@@ -36,9 +36,9 @@ class SamplerWorker(mp.Process):
                 pi = self.policy(observations_tensor, params=params)
                 actions_tensor = pi.sample()
                 actions = actions_tensor.cpu().numpy()
-                new_observations, rewards, dones, _ = self.envs.step(actions)
-                batch_ids = info['batch_ids']
-                yield (observations, actions, rewards, dones, batch_ids)
+                new_observations, rewards, _, infos = self.envs.step(actions)
+                batch_ids = infos['batch_ids']
+                yield (observations, actions, rewards, batch_ids)
                 observations = new_observations
     
     def create_episode(self, params=None, gamma=0.95, gae_lambda=1.0, device='cpu'):
@@ -56,7 +56,7 @@ class SamplerWorker(mp.Process):
             self.train_queue.put((index, step, deepcopy(train_episode))) # deepcopy是为了防止多个进程之间的episode共享内存
             with self.policy_lock:
                 loss = reinforce_loss(self.policy, train_episode, params)
-                params = self.policy.update_params(loss, params, fast_lr, fast_lr, True)
+                params = self.policy.update_params(loss, params, fast_lr, True)
         valid_episode = self.create_episode(params, gamma, gae_lambda, device)
         self.valid_queue.put((index, None, deepcopy(valid_episode)))
     
@@ -96,7 +96,7 @@ class MultiTaskSampler(Sampler):
         policy_lock = mp.Lock()
         self.workers = [
             SamplerWorker(
-                index, env_name, env_kwargs, batch_size, self.observation_space, self.action_space, policy,
+                index, env_name, env_kwargs, batch_size, self.env.observation_space, self.env.action_space, policy,
                 deepcopy(baseline), self.task_queue, self.train_episodes_queue, self.valid_episodes_queue, policy_lock
             ) for index in range(num_workers)
         ]
@@ -115,7 +115,7 @@ class MultiTaskSampler(Sampler):
         #! 这个地方future对象貌似都没有定义?
         # train
         train_episodes_futures = [[self._event_loop.create_future() for _ in tasks] for _ in range(num_steps)]
-        self._train_consumer_thread = threading.Thread(target=_create_consumer, args=(self.train_episodes_queue, train_episodes_futures), kwargs={'loop':self._event_loop}) #! train_episodes_queue怎么;来到
+        self._train_consumer_thread = threading.Thread(target=_create_consumer, args=(self.train_episodes_queue, train_episodes_futures), kwargs={'loop':self._event_loop}) #! train_episodes_queue怎么来到
         self._train_consumer_thread.daemon = True # 设置为守护进程, 因为当主进程结束了, 就不需要继续了
         self._train_consumer_thread.start()
         # valid

@@ -9,7 +9,7 @@ from maml.utils.optimization import conjugate_gradient #!还没写
 from maml.utils.reinforcement_learning import reinforce_loss
 
 class MAMLTRPO(GradientBasedMetaLearner):
-    def __init__(self, policy, fast_lr=0.5, first_order=False, device='cuda'):
+    def __init__(self, policy, fast_lr=0.5, first_order=False, device='cpu'):
         super(MAMLTRPO, self).__init__(policy, device)
         self.fast_lr = fast_lr
         self.first_order = first_order
@@ -20,7 +20,7 @@ class MAMLTRPO(GradientBasedMetaLearner):
         params = None
         for train_episode in train_episode_futures:
             inner_loss = reinforce_loss(self.policy, await train_episode, params=params)
-            params = self.policy.update_params(inner_loss, lr = self.fast_lr, first_order=first_order)
+            params = self.policy.update_params(inner_loss, params, lr = self.fast_lr, first_order=first_order)
         return params
     
     def hessian_vector_product(self, kl, damping=1e-2): # 返回一个函数
@@ -54,7 +54,7 @@ class MAMLTRPO(GradientBasedMetaLearner):
     def step(self, train_futures, valid_futures, max_kl=1e-3, cg_iters=10, cg_damping=1e-2, ls_max_steps=10, ls_backtrack_ratio=0.5):
         num_tasks = len(train_futures[0])
         logs = {}
-        old_losses, old_kls, old_pis = self._async_gather([self.surrogate_loss(train, valid, old_pi=None) for train, valid in zip(zip(*train_futures), valid_futures)])
+        old_losses, old_kls, old_pis = self._async_gather([self.surrogate_loss(train, valid, old_pi=None) for (train, valid) in zip(zip(*train_futures), valid_futures)])
         # train_futures是一个列表, shape为 (m, n)表示, 每个任务有m个trajectory, 一共有n个不同的任务
         # [ [traj1_task1, traj1_task2, ..., traj1_taskn] ...
         # [trajm_taskm, trajm_task2, ..., trajm_taskn] ]

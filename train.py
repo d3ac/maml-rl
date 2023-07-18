@@ -4,6 +4,8 @@ import os
 import yaml
 import json
 import tqdm
+import pandas as pd
+import numpy as np
 import torch.multiprocessing as mp
 
 import maml.envs
@@ -11,6 +13,7 @@ from maml.utils.helpers import get_policy_for_env, get_input_size
 from maml.samplers import MultiTaskSampler
 from maml.metalearners import MAMLTRPO
 from maml.baseline import LinearFeatureBaseline
+from maml.utils.reinforcement_learning import get_returns
 
 
 def main(args):
@@ -41,14 +44,24 @@ def main(args):
     metalearner = MAMLTRPO(policy=policy, fast_lr=config['fast-lr'], first_order=config['first-order'], device=args.device)
     # train
     num_iterations = 0
-    for batch in tqdm.trange(config['num-batches']):
+    TRAIN = []
+    VALID = []
+    Trange = tqdm.trange(config['num-batches'])
+    for batch in Trange:
         tasks = sampler.sample_tasks(num_tasks=config['meta-batch-size']) # 调用env.unwrapped.sample_tasks(num_tasks)生成任务字典
-        futures = sampler.sample_async(tasks, num_steps=config['num-steps'], device=args.device)
+        futures = sampler.sample_async(tasks, num_steps=config['num-steps'], device=args.device) 
+        # ([[train_episodes1], [train_episodes2]], [valid_episodes]) 这个train的主要取决于num_steps, 有几个num_steps就有几个train_episodes
         metalearner.step(*futures, max_kl=config['max-kl'], cg_iters=config['cg-iters'], cg_damping=config['cg-damping'], ls_max_steps=config['ls-max-steps'], ls_backtrack_ratio=config['ls-backtrack-ratio']) # *futures是train_episodes_futures, valid_episodes_futures
         train_episodes, valid_episodes = sampler.sample_wait(futures)
-        with open(policy_filename, 'wb') as f:
-            torch.save(policy.state_dict(), f)
-        
+        TRAIN.append(np.mean(get_returns(train_episodes[0])))
+        VALID.append(np.mean(get_returns(valid_episodes)))
+        Trange.set_description(f'train: {TRAIN[-1]:.4f}, valid: {VALID[-1]:.4f}')
+    with open(policy_filename, 'wb') as f:
+        torch.save(policy.state_dict(), f)
+    a = pd.DataFrame(TRAIN)
+    b = pd.DataFrame(VALID)
+    a.to_excel('train.xlsx', index=False)
+    b.to_excel('valid.xlsx', index=False)
 
 if __name__ == '__main__':
     import argparse

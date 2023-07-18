@@ -14,11 +14,12 @@ class MAMLTRPO(GradientBasedMetaLearner):
         self.fast_lr = fast_lr
         self.first_order = first_order
 
-    async def adapt(self, train_episode_futures, first_order=None): #! 每一步都懂了,但是在那里调用的呢
+    async def adapt(self, train_episode_futures, first_order=None):
+        # inner_loop更新一次参数, 然后给最外层outerloop使用loss更新
         if first_order is None:
             first_order = self.first_order
         params = None
-        for train_episode in train_episode_futures:
+        for train_episode in train_episode_futures: # 把一个trajectory拿来更新
             inner_loss = reinforce_loss(self.policy, await train_episode, params=params)
             params = self.policy.update_params(inner_loss, params, lr = self.fast_lr, first_order=first_order)
         return params
@@ -36,8 +37,8 @@ class MAMLTRPO(GradientBasedMetaLearner):
     
     async def surrogate_loss(self, train_futures, valid_futures, old_pi=None):
         # 计算一个替代的loss, 用来更新参数, 使用新旧两个分布之间的差异来计算, 会更加稳定
-        #!是不使用firtst order有点迷
-        first_order = (old_pi is not None) or self.first_order # 
+        # 如果没有old_pi就会将valid_episodes丢进policy算一个pi出来
+        first_order = (old_pi is not None) or self.first_order # 如果old_pi为空, 就只能依赖于当前的策略梯度, 所以我们不能first_order, 但是如果为不为空,那么说明可以用就策略来计算新策略, 也就是通过一阶梯度策略改进策略
         params = await self.adapt(train_futures, first_order) # 先进行内循环更新
         with torch.set_grad_enabled(old_pi is None): # 如果old_pi为空, 则需要计算梯度
             valid_episodes = await valid_futures 
@@ -52,7 +53,7 @@ class MAMLTRPO(GradientBasedMetaLearner):
         return losses.mean(), kls.mean(), old_pi
     
     def step(self, train_futures, valid_futures, max_kl=1e-3, cg_iters=10, cg_damping=1e-2, ls_max_steps=10, ls_backtrack_ratio=0.5):
-        num_tasks = len(train_futures[0])
+        num_tasks = len(train_futures[0]) # 也就是num_steps
         logs = {}
         old_losses, old_kls, old_pis = self._async_gather([self.surrogate_loss(train, valid, old_pi=None) for (train, valid) in zip(zip(*train_futures), valid_futures)])
         # train_futures是一个列表, shape为 (m, n)表示, 每个任务有m个trajectory, 一共有n个不同的任务
@@ -61,14 +62,14 @@ class MAMLTRPO(GradientBasedMetaLearner):
         # 这里使用 zip(* train_futures)就可以把每个任务的trajectory放在一起, 形成一个列表
         logs['loss_before'] = to_numpy(old_losses)
         logs['kl_before'] = to_numpy(old_kls)
-        old_losses = sum(old_losses) / num_tasks 
+        old_loss = sum(old_losses) / num_tasks 
         old_kl = sum(old_kls) / num_tasks
-        grads = torch.autograd.grad(old_losses, self.policy.parameters(), retain_graph=True)
+        grads = torch.autograd.grad(old_loss, self.policy.parameters(), retain_graph=True)
         grads = parameters_to_vector(grads)
         hessian_vector_product = self.hessian_vector_product(old_kl, damping=cg_damping) # 定义的是一个函数
         stepdir = conjugate_gradient(hessian_vector_product, grads, cg_iters=cg_iters)
         
-        lagrange_multiplier = torch.sqrt(0.5 * torch.dot(stepdir, hessian_vector_product(stepdir, False)) /max_kl)
+        lagrange_multiplier = torch.sqrt(0.5 * torch.dot(stepdir, hessian_vector_product(stepdir, False)) / max_kl)
         step = stepdir / lagrange_multiplier
         old_params = parameters_to_vector(self.policy.parameters())
         

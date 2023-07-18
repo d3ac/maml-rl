@@ -112,7 +112,6 @@ class MultiTaskSampler(Sampler):
         return self.env.unwrapped.sample_tasks(num_tasks)
 
     def _start_consumer_threads(self, tasks, num_steps=1):
-        #! 这个地方future对象貌似都没有定义?
         # train
         train_episodes_futures = [[self._event_loop.create_future() for _ in tasks] for _ in range(num_steps)]
         self._train_consumer_thread = threading.Thread(target=_create_consumer, args=(self.train_episodes_queue, train_episodes_futures), kwargs={'loop':self._event_loop}) #! train_episodes_queue怎么来到

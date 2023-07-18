@@ -53,3 +53,7 @@
   \lambda = \sqrt{\frac{1}{2}\Delta\theta^T H \Delta\theta / \delta}\\
   \text{stepsize} = \frac{1}{\lambda}
   $$
+
++ step
+
+  首先是计算出之前的`loss`, `pi`, `kl`, 这里使用了代替的`loss` 而不是之前的`loss`, 在元学习中, 内循环做一个`fine-tuning`然后外循环更新参数, 所以`surrogate_loss`这里进行了`adapt`, 

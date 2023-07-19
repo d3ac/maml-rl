@@ -1,6 +1,6 @@
 import numpy as np
-from gymnasium.vector import SyncVectorEnv as SyncVectorEnv_
-from gymnasium.vector.utils import concatenate, create_empty_array
+from gym.vector import SyncVectorEnv as SyncVectorEnv_
+from gym.vector.utils import concatenate, create_empty_array
 
 class SyncVectorEnv(SyncVectorEnv_):
     def __init__(self, env_fns, observation_space=None, action_space=None, **kwargs):

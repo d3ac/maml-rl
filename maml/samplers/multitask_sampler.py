@@ -25,7 +25,6 @@ class SamplerWorker(mp.Process):
         self.train_queue = train_queue
         self.valid_queue = valid_queue
         self.policy_lock = policy_lock
-        print(None if (seed is None) else seed + index * batch_size)
         self.envs.seed(None if (seed is None) else seed + index * batch_size)
 
     def sample_trajectories(self, params=None):

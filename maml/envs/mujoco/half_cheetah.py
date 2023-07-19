@@ -1,5 +1,5 @@
 import numpy as np
-from gymnasium.envs.mujoco import HalfCheetahEnv as HalfCheetahEnv_
+from gym.envs.mujoco import HalfCheetahEnv as HalfCheetahEnv_
 
 class HalfCheetahEnv(HalfCheetahEnv_):
     def viewer_setup(self):

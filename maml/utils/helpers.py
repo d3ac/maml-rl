@@ -1,4 +1,4 @@
-import gymnasium as gym
+import gym
 import torch
 from functools import reduce
 from operator import mul

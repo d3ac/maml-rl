@@ -1,6 +1,6 @@
 import numpy as np
-import gymnasium as gym
-from gymnasium import spaces
+import gym
+from gym import spaces
 
 class NormalizedActionWrapper(gym.ActionWrapper):
     def __init__(self, env, scale=1.0):

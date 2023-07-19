@@ -51,13 +51,13 @@ class SamplerWorker(mp.Process):
         return episodes
 
     def sample(self, index, num_steps=1, fast_lr=0.5, gamma=0.95, gae_lambda=1.0, device='cpu'):
-        params = None
+        params = None # 新开一个param, 在采样的时候单独使用
         for step in range(num_steps): # 采样num_steps个轨迹
             train_episode = self.create_episode(params, gamma, gae_lambda, device) # 创建一个episode
             self.train_queue.put((index, step, deepcopy(train_episode))) # deepcopy是为了防止多个进程之间的episode共享内存
             with self.policy_lock:
                 loss = reinforce_loss(self.policy, train_episode, params)
-                params = self.policy.update_params(loss, params, fast_lr, True)
+                params = self.policy.update_params(loss, params, fast_lr, True) # 在这个地方更新param并不会影响到policy的param
         valid_episode = self.create_episode(params, gamma, gae_lambda, device)
         self.valid_queue.put((index, None, deepcopy(valid_episode)))
     
@@ -70,7 +70,7 @@ class SamplerWorker(mp.Process):
                 break
             index, task, kwargs = data
             self.envs.reset_task(task)
-            self.sample(index, **kwargs) # 采样并且训练
+            self.sample(index, **kwargs)
             self.task_queue.task_done() # 通知主进程任务完成
 
 
@@ -115,7 +115,7 @@ class MultiTaskSampler(Sampler):
     def _start_consumer_threads(self, tasks, num_steps=1):
         # train
         train_episodes_futures = [[self._event_loop.create_future() for _ in tasks] for _ in range(num_steps)]
-        self._train_consumer_thread = threading.Thread(target=_create_consumer, args=(self.train_episodes_queue, train_episodes_futures), kwargs={'loop':self._event_loop}) #! train_episodes_queue怎么来到
+        self._train_consumer_thread = threading.Thread(target=_create_consumer, args=(self.train_episodes_queue, train_episodes_futures), kwargs={'loop':self._event_loop})
         self._train_consumer_thread.daemon = True # 设置为守护进程, 因为当主进程结束了, 就不需要继续了
         self._train_consumer_thread.start()
         # valid
@@ -126,13 +126,13 @@ class MultiTaskSampler(Sampler):
         return (train_episodes_futures, valid_episodes_futures)
 
     def sample_async(self, tasks, **kwargs): # 传入task, 然后传入task_queue进行sample, 最后调用consumer进行set future
-        if self._waiting_sample: #! 看看
+        if self._waiting_sample:
             raise RuntimeError('Already sampling!')
         for index, task in enumerate(tasks):
             self.task_queue.put((index, task, kwargs)) # SamplerWorker 已经开始采样了
         num_steps = kwargs.get('num_steps', 1)
         futures = self._start_consumer_threads(tasks, num_steps)
-        self._waiting_sample = True #! 进入到sample_wait的时候才会变成False
+        self._waiting_sample = True
         return futures
     
     @property

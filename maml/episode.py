@@ -145,3 +145,6 @@ class BatchEpisodes(object):
 
     def __len__(self):
         return max(self.lengths)
+    
+    def __iter__(self):
+        return iter(self)

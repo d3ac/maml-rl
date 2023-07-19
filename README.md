@@ -23,10 +23,13 @@
   $$
   KL[\pi(\theta_{\text{old}}) \| \pi(\theta)] \leq \delta
   $$
+
   拉格朗日函数是一种将优化问题的目标函数和约束条件组合起来的方法, 使用了一个拉格朗日乘子$\lambda$来将约束条件转化成一个可以优化的形式, 然后将目标函数和约束条件组合成一个求和的形式, 并且调整$\lambda$的大小来控制目标函数和约束条件之间的权衡, 具体的来说我们希望最大化$L(\theta)$, 最小化$KL$, 也就是最大化$-KL$, 我们可以调整这个$\lambda$, 当$\lambda$越大的时候, 违反$KL$约束的代价也会越大, 当$\lambda$越小的时候, 满足目标函数就会越重要.
+  
   $$
   L(\theta) - \lambda KL[\pi(\theta_{\text{old}}) \| \pi(\theta)]
   $$
+
   为了让式子更便于优化, 我们先把$\theta$换成$\theta_{old}+\Delta\theta$, 这个时候我们就把优化的参数从$\theta$转换成了$\Delta\theta$了, 然后再进行二阶泰勒展开 : 
 
   $$
@@ -35,25 +38,27 @@
   $$
 
   在这里再解释一下为什么$KL$项等于这个, 因为$KL(\theta)=KL[\pi(\theta_{old}) \|    \pi(\theta)]$, 所以他的二阶泰勒逼近是 : 
+
   $$
   KL(\theta) \approx KL(\theta_0) + KL'(\theta_0)(\theta - \theta_0) +   \frac{1}{2}KL''(\theta_0)(\theta - \theta_0)^2 \\
   
   \nabla_{\theta} D_{KL}(\pi(\theta_{\text{old}}) || \pi(\theta)) = E_{x \sim \pi(\theta_{\text{old}})}\left[\frac{\pi(\theta_{\text{old}}) - \pi(\theta)}{\pi(\theta)}\right]\\
   $$
    因为这里是一个多元函数, 所以泰勒展开会稍微变一下, 举一个二维函数变量为$x$和$y$的例子:
+
   $$
   f(x, y) \approx f(x_0, y_0) + f_x(x_0, y_0)(x - x_0) + f_y(x_0, y_0)(y - y_0) + \frac{1}{2}(x - x_0)^2 f_{xx}(x_0, y_0) + (x - x_0)(y - y_0)f_{xy}(x_0, y_0) + \frac{1}{2}(y - y_0)^2 f_{yy}(x_0, y_0)
   $$
+
   后面的三项也就是二阶泰勒展开, 可以变一下成下面这样子:
+
   $$
   \frac{1}{2}(x - x_0, y - y_0) \begin{pmatrix}f_{xx}(x_0, y_0) & f_{xy}(x_0, y_0) \\ f_{yx}(x_0, y_0) & f_{yy}(x_0, y_0) \end{pmatrix} \begin{pmatrix}x - x_0 \\ y - y_0 \end{pmatrix}
   $$
+
   然后因为我们最后要关心的是两个策略之间的$\theta$不能超过某一个值, 所以这个时候我们就可以不要常数项第一项,因为最后会减去就没有了, 然后这里的步长是这样计算的 :
+
   $$
   \lambda = \sqrt{\frac{1}{2}\Delta\theta^T H \Delta\theta / \delta}\\
   \text{stepsize} = \frac{1}{\lambda}
   $$
-
-+ step
-
-  首先是计算出之前的`loss`, `pi`, `kl`, 这里使用了代替的`loss` 而不是之前的`loss`, 在元学习中, 内循环做一个`fine-tuning`然后外循环更新参数, 所以`surrogate_loss`这里进行了`adapt`, 

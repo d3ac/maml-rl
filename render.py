@@ -7,6 +7,7 @@ import tqdm
 import pandas as pd
 import numpy as np
 import torch.multiprocessing as mp
+import time
 
 import maml.envs
 from maml.utils.helpers import get_policy_for_env, get_input_size
@@ -17,11 +18,15 @@ from maml.utils.reinforcement_learning import get_returns
 
 
 def main(args):
+    # config
     mp.set_start_method('spawn') # 设置多进程的启动方式为spawn，不然会出现cuda错误
     with open(args.config, 'r') as f:
         config = json.load(f) # 可以通过config['xxx']来获取配置信息
     env = gym.make(config['env-name'], **config.get('env-kwargs',{})) # **表示将字典解包，获取config字典中'env-kwargs'键的值，如果该键不存在，则返回一个空字典{}
     env.close()
+    config['fast-batch-size'] = 1
+    config['mata-batch-size'] = 1
+    config['']
     # policy
     policy = get_policy_for_env(env, hidden_sizes=config['hidden-sizes'], nonlinearity=config['nonlinearity'])
     with open(args.policy, 'rb') as f:
@@ -41,10 +46,8 @@ def main(args):
         tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size) # 调用env.unwrapped.sample_tasks(num_tasks)生成任务字典
         train_episodes, valid_episodes = sampler.sample(tasks, num_steps=config['num-steps'], device=args.device, fast_lr=config['fast-lr'], gamma=config['gamma'], gae_lambda=config['gae-lambda'])
         logs['tasks'].extend(tasks)
-        # train_returns.append(np.mean(get_returns(train_episodes[0])))
-        # valid_returns.append(np.mean(get_returns(valid_episodes)))
-        train_returns.append(get_returns(train_episodes[0])) # (1, 40)
-        valid_returns.append(get_returns(valid_episodes))
+        train_returns.append(np.mean(get_returns(train_episodes[0])))
+        valid_returns.append(np.mean(get_returns(valid_episodes)))
     logs['train_returns'] = train_returns
     logs['valid_returns'] = valid_returns
     with open(args.output, 'wb') as f:
@@ -53,12 +56,12 @@ def main(args):
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='Test MAML-RL')
+    parser = argparse.ArgumentParser(description='Render MAML-RL')
     parser.add_argument('--config', type=str, default='output/config.json')
     parser.add_argument('--policy', type=str, default='output/policy.th')
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--num-batches', type=int, default=10)
-    parser.add_argument('--meta-batch-size', type=int, default=40)
+    parser.add_argument('--num-batches', type=int, default=1)
+    parser.add_argument('--meta-batch-size', type=int, default=1)
     parser.add_argument('--num-workers', type=int, default=mp.cpu_count()-1)
     parser.add_argument('--output', type=str, default='output/results.npz')
     parser.add_argument('--use-cuda', action='store_true', default=False)

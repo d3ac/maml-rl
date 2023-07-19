@@ -41,6 +41,8 @@ class MAMLTRPO(GradientBasedMetaLearner):
         first_order = (old_pi is not None) or self.first_order # 如果old_pi为空, 就只能依赖于当前的策略梯度, 所以我们不能first_order, 但是如果为不为空,那么说明可以用就策略来计算新策略, 也就是通过一阶梯度策略改进策略
         params = await self.adapt(train_futures, first_order) # 先进行内循环更新
         with torch.set_grad_enabled(old_pi is None): # 如果old_pi为空, 则需要计算梯度
+            # 因为在更新参数的时候必须使用到old_pi, 也就是说其他的时候计算surrogate_loss的时候都不需要计算梯度
+            # 在更新新的参数的时候必须是从old_pi那里更新过来的(old_pi那里计算的时候相当于是一阶梯度了)
             valid_episodes = await valid_futures 
             pi = self.policy(valid_episodes.observations, params=params)
             if old_pi is None:

@@ -19,7 +19,7 @@ class Policy(nn.Module):
     def update_params(self, loss, params=None, lr=0.5, first_order=False):
         # 需要单独把params拿出来，是因为方便计算first_order,second_order的梯度
         if params is None: # 默认是policy自己的参数
-            params = OrderedDict(self.named_parameters())
+            params = OrderedDict(self.named_parameters()) # deep copy, 有序字典
         grads = torch.autograd.grad(loss, params.values(), create_graph=not first_order)
         # 如果只需要一阶导数，那么就不需要创建计算图，这样可以节省内存
         updated_params = OrderedDict()

@@ -115,7 +115,7 @@ class MultiTaskSampler(Sampler):
     def _start_consumer_threads(self, tasks, num_steps=1):
         # train
         train_episodes_futures = [[self._event_loop.create_future() for _ in tasks] for _ in range(num_steps)]
-        self._train_consumer_thread = threading.Thread(target=_create_consumer, args=(self.train_episodes_queue, train_episodes_futures), kwargs={'loop':self._event_loop}) #! train_episodes_queue怎么来到
+        self._train_consumer_thread = threading.Thread(target=_create_consumer, args=(self.train_episodes_queue, train_episodes_futures), kwargs={'loop':self._event_loop})
         self._train_consumer_thread.daemon = True # 设置为守护进程, 因为当主进程结束了, 就不需要继续了
         self._train_consumer_thread.start()
         # valid

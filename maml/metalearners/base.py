@@ -10,13 +10,13 @@ class GradientBasedMetaLearner(object):
         self.policy = policy
         self.policy.to(self.device)
         self._event_loop = asyncio.get_event_loop()
-
+    
     def adapt(self, episodes, *args, **kwargs):
-        raise NotImplementedError()
-
+        raise NotImplementedError
+    
     def step(self, train_episodes, valid_episodes, *args, **kwargs):
-        raise NotImplementedError()
-
-    def _async_gather(self, coroutines):
-        coroutine = asyncio.gather(*coroutines)
-        return zip(*self._event_loop.run_until_complete(coroutine))
+        raise NotImplementedError
+    
+    def _async_gather(self, coros): # 传入多个task, 然后运行等待所有完成, 返回多个task的结果
+        coro = asyncio.gather(*coros)
+        return zip(*self._event_loop.run_until_complete(coro))

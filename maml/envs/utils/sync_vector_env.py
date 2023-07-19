@@ -4,7 +4,7 @@ from gymnasium.vector.utils import concatenate, create_empty_array
 
 class SyncVectorEnv(SyncVectorEnv_):
     def __init__(self, env_fns, observation_space=None, action_space=None, **kwargs):
-        super(SyncVectorEnv, self).__init__(env_fns, observation_space, action_space, **kwargs)
+        super(SyncVectorEnv, self).__init__(env_fns, observation_space=observation_space, action_space=action_space, **kwargs)
         for env in self.envs:
             if not hasattr(env.unwrapped, 'reset_task'):
                 raise ValueError('envs must contain a reset_task method for SyncVectorEnv')

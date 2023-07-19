@@ -14,7 +14,7 @@ from maml.utils.reinforcement_learning import reinforce_loss
 
 class SamplerWorker(mp.Process):
     # 采样器进程
-    def __init__(self, index, env_name, env_kwargs, batch_size, observation_space, action_space, policy, baseline, task_queue, train_queue, valid_queue, policy_lock):
+    def __init__(self, index, env_name, env_kwargs, batch_size, observation_space, action_space, policy, baseline, task_queue, train_queue, valid_queue, policy_lock, seed=None):
         super(SamplerWorker, self).__init__()
         env_functions = [make_env(env_name, env_kwargs) for _ in range(batch_size)]
         self.envs = SyncVectorEnv(env_functions, observation_space=observation_space, action_space=action_space)
@@ -25,6 +25,8 @@ class SamplerWorker(mp.Process):
         self.train_queue = train_queue
         self.valid_queue = valid_queue
         self.policy_lock = policy_lock
+        print(None if (seed is None) else seed + index * batch_size)
+        self.envs.seed(None if (seed is None) else seed + index * batch_size)
 
     def sample_trajectories(self, params=None):
         # 一个yield的生成器，每次返回一个轨迹
@@ -86,8 +88,8 @@ def _create_consumer(queue, futures, loop):
 
 
 class MultiTaskSampler(Sampler):
-    def __init__(self, env_name, env_kwargs, batch_size, policy, baseline, env=None, num_workers=1):
-        super(MultiTaskSampler, self).__init__(env_name, env_kwargs, batch_size, policy, env)
+    def __init__(self, env_name, env_kwargs, batch_size, policy, baseline, env=None, num_workers=1, seed=None):
+        super(MultiTaskSampler, self).__init__(env_name, env_kwargs, batch_size, policy, env, seed=seed)
         self.num_workers = num_workers
 
         self.task_queue = mp.JoinableQueue()
@@ -97,7 +99,7 @@ class MultiTaskSampler(Sampler):
         self.workers = [
             SamplerWorker(
                 index, env_name, env_kwargs, batch_size, self.env.observation_space, self.env.action_space, policy,
-                deepcopy(baseline), self.task_queue, self.train_episodes_queue, self.valid_episodes_queue, policy_lock
+                deepcopy(baseline), self.task_queue, self.train_episodes_queue, self.valid_episodes_queue, policy_lock, seed
             ) for index in range(num_workers)
         ]
         for worker in self.workers:
@@ -112,7 +114,6 @@ class MultiTaskSampler(Sampler):
         return self.env.unwrapped.sample_tasks(num_tasks)
 
     def _start_consumer_threads(self, tasks, num_steps=1):
-        #! 这个地方future对象貌似都没有定义?
         # train
         train_episodes_futures = [[self._event_loop.create_future() for _ in tasks] for _ in range(num_steps)]
         self._train_consumer_thread = threading.Thread(target=_create_consumer, args=(self.train_episodes_queue, train_episodes_futures), kwargs={'loop':self._event_loop}) #! train_episodes_queue怎么来到

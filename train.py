@@ -4,6 +4,7 @@ import os
 import yaml
 import json
 import tqdm
+import random
 import pandas as pd
 import numpy as np
 import torch.multiprocessing as mp
@@ -24,7 +25,7 @@ def main(args):
 
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
-    policy_filename = os.path.join(args.output_folder, 'policy.th')
+    policy_filename = os.path.join(args.output_folder, 'policy')
     config_filename = os.path.join(args.output_folder, 'config.json')
 
     with open(config_filename, 'w') as f:
@@ -32,8 +33,13 @@ def main(args):
         json.dump(config, f, indent=2)
 
     if args.seed is not None:
+        os.environ['PYTHONHASHSEED'] = str(args.seed)
+        torch.backends.cudnn.deterministic = True
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
+        np.random.seed(args.seed)
+        random.seed(args.seed)
+
     env = gym.make(config['env-name'], **config.get('env-kwargs', {}))
     env.close() # 他的意思是，先创建一个环境，然后关闭它，这样就可以得到环境的一些信息，比如observation_space, action_space等
     # Policy
@@ -65,9 +71,9 @@ def main(args):
             continue
         a = pd.DataFrame(TRAIN)
         b = pd.DataFrame(VALID)
-        a.to_excel('train.xlsx', index=False)
-        b.to_excel('valid.xlsx', index=False)
-        with open(policy_filename, 'wb') as f:
+        a.to_excel(os.path.join(args.output_folder, 'train.xlsx'), index=False)
+        b.to_excel(os.path.join(args.output_folder, 'valid.xlsx'), index=False)
+        with open(policy_filename + f'{batch}.th', 'wb') as f:
             torch.save(policy.state_dict(), f)
 
 

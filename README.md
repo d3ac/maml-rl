@@ -44,6 +44,7 @@
   
   \nabla_{\theta} D_{KL}(\pi(\theta_{\text{old}}) || \pi(\theta)) = E_{x \sim \pi(\theta_{\text{old}})}\left[\frac{\pi(\theta_{\text{old}}) - \pi(\theta)}{\pi(\theta)}\right]\\
   $$
+  
    因为这里是一个多元函数, 所以泰勒展开会稍微变一下, 举一个二维函数变量为$x$和$y$的例子:
 
   $$

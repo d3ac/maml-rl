@@ -21,7 +21,7 @@ class MAMLTRPO(GradientBasedMetaLearner):
         params = None
         for train_episode in train_episode_futures: # 把一个trajectory拿来更新
             inner_loss = reinforce_loss(self.policy, await train_episode, params=params)
-            params = self.policy.update_params(inner_loss, params, lr = self.fast_lr, first_order=first_order)
+            params = self.policy.update_params(inner_loss, params, step_size = self.fast_lr, first_order=first_order)
         return params
     
     def hessian_vector_product(self, kl, damping=1e-2): # 返回一个函数

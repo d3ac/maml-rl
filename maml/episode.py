@@ -91,7 +91,8 @@ class BatchEpisodes(object):
         if self._mask == None:
             self._mask = torch.zeros((len(self), self.batch_size), dtype=torch.float32, device=self.device)
             for i in range(self.batch_size):
-                self._mask[:self.lengths[i], i].fill_(1.0)
+                lenghth = self.lengths[i]
+                self._mask[:lenghth, i].fill_(1.0)
         return self._mask
 
     @property

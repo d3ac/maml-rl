@@ -44,9 +44,11 @@
   在这里再解释一下为什么KLKL项等于这个, 因为$KL(\theta)=KL[\pi(\theta_{old}) \|    \pi(\theta)]$, 所以他的二阶泰勒逼近是 : 
 
   $$
-  KL(\theta) \approx KL(\theta_0) + KL'(\theta_0)(\theta - \theta_0) +   \frac{1}{2}KL''(\theta_0)(\theta - \theta_0)^2 \\
-  
-  \nabla_{\theta} D_{KL}(\pi(\theta_{\text{old}}) || \pi(\theta)) = E_{x \sim \pi(\theta_{\text{old}})}\left[\frac{\pi(\theta_{\text{old}}) - \pi(\theta)}{\pi(\theta)}\right]\\
+  KL(\theta) \approx KL(\theta_0) + KL'(\theta_0)(\theta - \theta_0) +   \frac{1}{2}KL''(\theta_0)(\theta - \theta_0)^2
+  $$
+
+  $$
+  \nabla_{\theta} D_{KL}(\pi(\theta_{\text{old}}) || \pi(\theta)) = E_{x \sim \pi(\theta_{\text{old}})}\left[\frac{\pi(\theta_{\text{old}}) - \pi(\theta)}{\pi(\theta)}\right]
   $$
   
    因为这里是一个多元函数, 所以泰勒展开会稍微变一下, 举一个二维函数变量为xx和yy的例子:
